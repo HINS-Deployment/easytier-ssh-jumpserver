@@ -1,0 +1,34 @@
+services:
+  easytier-ssh:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: easytier-ssh-jumpserver:latest
+    # 使用与 EasyTier 相同的版本标签
+    # 例如：image: easytier-ssh-jumpserver:v2.5.0
+    hostname: easytier-ssh
+    container_name: easytier-ssh
+    restart: unless-stopped
+    network_mode: host
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_ADMIN
+    environment:
+      - TZ=Asia/Shanghai
+      - SSH_USER=root
+      - SSH_PASSWORD=YourSecurePassword123
+      # 方式 1: 通过 ET_CONFIG_SERVER 连接到 Web Console（推荐）
+      - ET_CONFIG_SERVER=ws://api.easytier.hinswu.top:0/HINS
+      - ET_MACHINE_ID=HINS-UZ801-SSH01
+      # 方式 2: 直接通过环境变量配置（不通过 Web Console）
+      # - EASYTIER_NETWORK_NAME=myjumpserver
+      # - EASYTIER_NETWORK_SECRET=myjumpserver
+      # - EASYTIER_SERVERS=tcp://your-public-ip:11010
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - /etc/easytier-ssh:/root
+      - /etc/machine-id:/etc/machine-id:ro
+      - ./ssh_keys:/root/.ssh:rw

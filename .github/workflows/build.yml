@@ -1,0 +1,126 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v2.5.0 or latest)'
+        required: false
+        default: 'latest'
+        type: string
+      push_to_registry:
+        description: 'Push to Docker Hub and GHCR'
+        required: false
+        default: true
+        type: boolean
+      platforms:
+        description: 'Platforms to build (comma-separated)'
+        required: false
+        default: 'linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6'
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub
+      if: github.event_name != 'pull_request' && inputs.push_to_registry
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Login to GitHub Container Registry
+      if: github.event_name != 'pull_request' && inputs.push_to_registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Download EasyTier binaries
+      run: |
+        mkdir -p build
+        cd build
+        
+        # Get latest release from EasyTier
+        LATEST_RELEASE=$(curl -s https://api.github.com/repos/EasyTier/EasyTier/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+        echo "Downloading EasyTier $LATEST_RELEASE"
+        
+        # Download all architectures
+        ARCHIVES=(
+          "easytier-linux-x86_64"
+          "easytier-linux-aarch64"
+          "easytier-linux-armv7hf"
+          "easytier-linux-armhf"
+          "easytier-linux-riscv64"
+        )
+        
+        for arch in "${ARCHIVES[@]}"; do
+          URL="https://github.com/EasyTier/EasyTier/releases/download/$LATEST_RELEASE/${arch}.zip"
+          echo "Downloading $arch..."
+          curl -L -o "${arch}.zip" "$URL" 2>/dev/null && unzip -o "${arch}.zip" || true
+          mkdir -p "$arch"
+          mv easytier-core* "$arch/" 2>/dev/null || true
+        done
+        
+        # Also download easytier-web if available
+        WEB_ARCHIVES=(
+          "easytier-web-linux-x86_64"
+          "easytier-web-linux-aarch64"
+        )
+        
+        for arch in "${WEB_ARCHIVES[@]}"; do
+          URL="https://github.com/EasyTier/EasyTier/releases/download/$LATEST_RELEASE/${arch}.zip"
+          echo "Downloading $arch..."
+          curl -L -o "${arch}.zip" "$URL" 2>/dev/null && unzip -o "${arch}.zip" || true
+          mkdir -p "easytier-web"
+          mv easytier-web* "easytier-web/" 2>/dev/null || true
+        done
+        
+        ls -la
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          docker.io/wuhins/easytier-ssh-jumpserver
+          ghcr.io/${{ github.repository }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=raw,value=${{ github.event.inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' }}
+          type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch' }}
+
+    - name: Build and push
+      uses: docker/build-push-action@v6
+      with:
+        context: ./build
+        file: ./Dockerfile
+        platforms: ${{ github.event.inputs.platforms || 'linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6' }}
+        push: ${{ github.event_name != 'pull_request' && (github.event.inputs.push_to_registry != 'false' || github.event_name != 'workflow_dispatch') }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          TARGETPLATFORM=linux/amd64

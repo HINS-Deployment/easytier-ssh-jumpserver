@@ -1,0 +1,59 @@
+# 构建产物
+*.o
+*.so
+*.a
+*.dll
+*.exe
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+*~
+
+# 编辑器文件
+.vscode/
+.idea/
+*.sublime-*
+
+# Docker 相关
+docker_context/
+artifacts/
+
+# SSH 密钥（重要！）
+ssh_keys/
+*.pem
+*.key
+
+# 配置文件（包含敏感信息）
+.env
+.env.local
+.env.*.local
+*.secret
+*.conf
+
+# 测试文件
+test/
+tests/
+__pycache__/
+*.pyc
+
+# 文档生成
+node_modules/
+dist/
+build/
+
+# OS 文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker 数据卷
+/etc/easytier-ssh/
+/etc/machine-id
