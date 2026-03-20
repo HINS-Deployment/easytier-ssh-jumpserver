@@ -32,7 +32,7 @@ RUN ARTIFACT_ARCH=""; \
 
 FROM base
 
-RUN apk add --no-cache tzdata tini openssh-server sshpass bash curl
+RUN apk add --no-cache tzdata tini openssh-server openssh-client sshpass bash curl
 
 WORKDIR /app
 
