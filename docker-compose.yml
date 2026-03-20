@@ -1,20 +1,16 @@
 services:
   easytier-ssh:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: easytier-ssh-jumpserver:latest
+    image: docker.gh-proxy.org/ghcr.io/wuhins/easytier-ssh-jumpserver:latest
     # 使用与 EasyTier 相同的版本标签
     # 例如：image: easytier-ssh-jumpserver:v2.5.0
     hostname: easytier-ssh
     container_name: easytier-ssh
     restart: unless-stopped
-    network_mode: host
-    privileged: true
+    networks:
+      - etssh-network
     cap_add:
       - NET_ADMIN
       - NET_RAW
-      - SYS_ADMIN
     environment:
       - TZ=Asia/Shanghai
       - SSH_USER=root
@@ -26,9 +22,8 @@ services:
       # - EASYTIER_NETWORK_NAME=myjumpserver
       # - EASYTIER_NETWORK_SECRET=myjumpserver
       # - EASYTIER_SERVERS=tcp://your-public-ip:11010
-    devices:
-      - /dev/net/tun:/dev/net/tun
     volumes:
-      - /etc/easytier-ssh:/root
-      - /etc/machine-id:/etc/machine-id:ro
       - ./ssh_keys:/root/.ssh:rw
+
+networks:
+  etssh-network:
