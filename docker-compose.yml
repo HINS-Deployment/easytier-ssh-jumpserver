@@ -1,29 +1,61 @@
 services:
   easytier-ssh:
-    image: docker.gh-proxy.org/ghcr.io/wuhins/easytier-ssh-jumpserver:latest
+    # 生产环境推荐使用预构建的镜像
+    image: ghcr.io/wuhins/easytier-ssh-jumpserver:latest
+    # 国内加速镜像（可选）
+    # image: docker.gh-proxy.org/ghcr.io/wuhins/easytier-ssh-jumpserver:latest
+    
     # 使用与 EasyTier 相同的版本标签
     # 例如：image: easytier-ssh-jumpserver:v2.5.0
+    
     hostname: easytier-ssh
     container_name: easytier-ssh
     restart: unless-stopped
+    
+    # 使用独立网络（安全！不要使用 host 网络）
     networks:
       - etssh-network
+    
+    # 最小权限原则 - 移除 privileged 和 SYS_ADMIN
     cap_add:
-      - NET_ADMIN
-      - NET_RAW
+      - NET_ADMIN      # 网络管理（必需）
+      - NET_RAW        # 原始网络包（必需）
+    
     environment:
       - TZ=Asia/Shanghai
       - SSH_USER=root
+      # 强烈建议使用 SSH 密钥认证，而不是密码
+      # 如果必须使用密码，请确保足够复杂
       - SSH_PASSWORD=YourSecurePassword123
+      
       # 方式 1: 通过 ET_CONFIG_SERVER 连接到 Web Console（推荐）
       - ET_CONFIG_SERVER=ws://api.easytier.hinswu.top:0/HINS
       - ET_MACHINE_ID=HINS-UZ801-SSH01
+      
       # 方式 2: 直接通过环境变量配置（不通过 Web Console）
       # - EASYTIER_NETWORK_NAME=myjumpserver
       # - EASYTIER_NETWORK_SECRET=myjumpserver
       # - EASYTIER_SERVERS=tcp://your-public-ip:11010
+    
+    # 暴露 SSH 端口（可选，如果只通过 EasyTier 虚拟 IP 访问则不需要）
+    # ports:
+    #   - "2222:22"
+    
+    # 必需的设备映射
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    
     volumes:
+      # SSH 密钥配置
       - ./ssh_keys:/root/.ssh:rw
+      # 持久化 EasyTier 配置（可选）
+      - ./easytier_config:/root/.easytier:rw
+      # 持久化日志（可选）
+      - ./logs:/var/log:rw
 
 networks:
   etssh-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
