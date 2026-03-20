@@ -63,6 +63,7 @@ jobs:
         
         # Download and extract all architectures
         # Create directories matching TARGETPLATFORM format
+        # File format: easytier-linux-${ARCH}-${VERSION}.zip, extracts to 'easytier'
         ARCHIVE_MAP=(
           "x86_64:easytier-linux-x86_64"
           "aarch64:easytier-linux-aarch64"
@@ -73,35 +74,51 @@ jobs:
         
         for mapping in "${ARCHIVE_MAP[@]}"; do
           ARCH_DIR="${mapping%%:*}"
-          ARCHIVE_NAME="${mapping##*:}"
+          ARCHIVE_BASE="${mapping##*:}"
+          ARCHIVE_NAME="${ARCHIVE_BASE}-${LATEST_RELEASE}"
           URL="https://github.com/EasyTier/EasyTier/releases/download/$LATEST_RELEASE/${ARCHIVE_NAME}.zip"
           echo "Downloading $ARCHIVE_NAME..."
           
-          mkdir -p "$ARCH_DIR"
+          # Create temp dir for extraction
+          TEMP_DIR="temp_${ARCH_DIR}"
+          mkdir -p "$TEMP_DIR"
+          cd "$TEMP_DIR"
+          
           if curl -L -o "${ARCHIVE_NAME}.zip" "$URL" 2>/dev/null && unzip -o "${ARCHIVE_NAME}.zip"; then
-            mv easytier-core* "$ARCH_DIR/" 2>/dev/null || true
-            echo "Extracted to $ARCH_DIR/"
+            # List extracted contents for debugging
+            echo "Extracted contents:"
+            ls -laR . | head -20
+            
+            # Find the easytier binary (may be in subdirectory)
+            EASYTIER_BIN=$(find . -name "easytier" -type f 2>/dev/null | head -n1)
+            if [ -n "$EASYTIER_BIN" ]; then
+              cd ..
+              mkdir -p "$ARCH_DIR"
+              cp "$TEMP_DIR/$EASYTIER_BIN" "$ARCH_DIR/easytier"
+              chmod +x "$ARCH_DIR/easytier"
+              echo "✓ Extracted $ARCH_DIR/easytier"
+            else
+              cd ..
+              echo "✗ Warning: easytier binary not found in $ARCHIVE_NAME"
+              echo "Contents of $TEMP_DIR:"
+              ls -la "$TEMP_DIR" || true
+            fi
+            rm -rf "$TEMP_DIR"
           else
-            echo "Warning: Failed to download $ARCHIVE_NAME"
+            cd ..
+            echo "✗ Warning: Failed to download $ARCHIVE_NAME"
           fi
         done
         
-        # Also download easytier-web if available
-        WEB_ARCHIVES=(
-          "easytier-web-linux-x86_64"
-          "easytier-web-linux-aarch64"
-        )
-        
-        for arch in "${WEB_ARCHIVES[@]}"; do
-          URL="https://github.com/EasyTier/EasyTier/releases/download/$LATEST_RELEASE/${arch}.zip"
-          echo "Downloading $arch..."
-          if curl -L -o "${arch}.zip" "$URL" 2>/dev/null && unzip -o "${arch}.zip"; then
-            mkdir -p "easytier-web"
-            mv easytier-web* "easytier-web/" 2>/dev/null || true
-          fi
-        done
-        
+        echo ""
+        echo "=== Build directory structure ==="
         ls -la
+        for dir in x86_64 aarch64 armv7hf armhf riscv64; do
+          if [ -d "$dir" ]; then
+            echo "--- $dir ---"
+            ls -la "$dir"
+          fi
+        done
 
     - name: Extract metadata
       id: meta

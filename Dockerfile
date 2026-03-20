@@ -43,6 +43,9 @@ COPY --from=builder --chmod=755 /tmp/output/* /usr/local/bin
 COPY scripts/ /usr/local/bin/
 RUN chmod +x /usr/local/bin/*.sh
 
+# 重命名 easytier 为 easytier-core 以保持一致性
+RUN mv /usr/local/bin/easytier /usr/local/bin/easytier-core
+
 # 获取 EasyTier 版本并设置为环境变量
 RUN EASYTIER_VERSION=$(easytier-core --version 2>&1 | head -n1 || echo "unknown") && \
     echo "Built with EasyTier version: $EASYTIER_VERSION" && \
