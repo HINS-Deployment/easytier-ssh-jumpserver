@@ -16,19 +16,28 @@ else
     ssh-keygen -A
 fi
 
-cat > /etc/ssh/sshd_config << 'EOF'
+# 检查是否启用受限模式
+if [ "$SSH_JUMPShell" = "true" ]; then
+    echo "=== Enabling Restricted Jumpshell Mode ==="
+    JUMP_SHELL_CONFIG="ForceCommand /jumpshell"
+else
+    JUMP_SHELL_CONFIG=""
+fi
+
+cat > /etc/ssh/sshd_config << EOF
 Port 22
 PermitRootLogin yes
 PasswordAuthentication yes
 PubkeyAuthentication yes
 ChallengeResponseAuthentication no
 UsePAM yes
-X11Forwarding yes
+X11Forwarding no
 PrintMotd no
 AcceptEnv LANG LC_*
 Subsystem sftp /usr/lib/ssh/sftp-server
 AllowAgentForwarding yes
 AllowTcpForwarding yes
+$JUMP_SHELL_CONFIG
 EOF
 
 if [ -n "$SSH_PASSWORD" ]; then

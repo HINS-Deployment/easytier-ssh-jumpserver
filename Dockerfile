@@ -43,6 +43,14 @@ COPY --from=builder --chmod=755 /tmp/output/* /usr/local/bin
 COPY scripts/ /usr/local/bin/
 RUN chmod +x /usr/local/bin/*.sh
 
+# 创建受限的 jumpshell
+RUN cp /usr/local/bin/jumpshell.sh /jumpshell && \
+    chmod +x /jumpshell
+
+# 创建用户管理脚本
+RUN cp /usr/local/bin/create-jumpuser.sh /usr/local/bin/ && \
+    chmod +x /usr/local/bin/create-jumpuser.sh
+
 # 重命名 easytier 为 easytier-core 以保持一致性
 RUN mv /usr/local/bin/easytier /usr/local/bin/easytier-core
 
@@ -55,11 +63,12 @@ ENV TZ=Asia/Shanghai
 ENV SSH_PORT=22
 ENV SSH_USER=root
 ENV SSH_PASSWORD=
+ENV SSH_JUMPShell=false
 ENV EASYTIER_NETWORK_NAME=
 ENV EASYTIER_NETWORK_SECRET=
 ENV EASYTIER_SERVERS=
 ENV ET_CONFIG_SERVER=
-
+ENV ET_MACHINE_ID=
 # 暴露端口
 EXPOSE 22/tcp
 EXPOSE 11010/tcp
