@@ -19,9 +19,38 @@
 
 ## 🚀 快速开始
 
-### 方式 1：使用受限用户（推荐）
+### 默认配置（推荐）
 
-#### 步骤 1：创建受限用户
+**镜像默认已经启用受限模式**，用户名为 `ssh`，只能执行 SSH 命令。
+
+```bash
+# 准备 SSH 公钥
+mkdir -p ssh_keys
+cp ~/.ssh/id_ed25519.pub ssh_keys/authorized_keys
+chmod 600 ssh_keys/authorized_keys
+
+# 启动容器
+docker compose up -d
+
+# 使用受限用户连接
+ssh ssh@<virtual-ip>
+```
+
+连接后只能执行 SSH 命令：
+```bash
+========================================
+  EasyTier SSH Jumpserver
+  受限环境 - 仅允许 SSH 命令
+========================================
+
+ssh> ssh user@target-server
+```
+
+---
+
+### 自定义受限用户
+
+#### 步骤 1：创建额外的受限用户
 
 ```bash
 # 进入容器

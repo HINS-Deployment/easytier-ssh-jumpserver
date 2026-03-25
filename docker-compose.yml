@@ -23,10 +23,14 @@ services:
     
     environment:
       - TZ=Asia/Shanghai
-      - SSH_USER=root
+      # 默认使用受限用户 'ssh'，只能执行 SSH 命令
+      # 如需使用 root 用户，取消下面注释
+      # - SSH_USER=root
+      # - SSH_JUMPShell=false
+      
       # 强烈建议使用 SSH 密钥认证，而不是密码
       # 如果必须使用密码，请确保足够复杂
-      - SSH_PASSWORD=YourSecurePassword123
+      # - SSH_PASSWORD=YourSecurePassword123
       
       # 方式 1: 通过 ET_CONFIG_SERVER 连接到 Web Console（推荐）
       - ET_CONFIG_SERVER=ws://api.easytier.hinswu.top:0/HINS

@@ -14,10 +14,12 @@ echo "EasyTier Core Version: $VERSION_OUTPUT"
 echo "========================================="
 echo ""
 echo "=== EasyTier SSH Jumpserver Starting ==="
+echo "Restricted Mode: Enabled (SSH user only)"
 echo "This instance can be managed by external EasyTier Web Console"
 
-export SSH_USER=${SSH_USER:-root}
+export SSH_USER=${SSH_USER:-ssh}
 export SSH_PASSWORD=${SSH_PASSWORD:-}
+export SSH_JUMPShell=${SSH_JUMPShell:-true}
 export EASYTIER_NETWORK_NAME=${EASYTIER_NETWORK_NAME:-}
 export EASYTIER_NETWORK_SECRET=${EASYTIER_NETWORK_SECRET:-}
 export EASYTIER_SERVERS=${EASYTIER_SERVERS:-}
@@ -32,6 +34,23 @@ mkdir -p /root/.ssh
 init_ssh() {
     echo "=== Initializing SSH ==="
     /usr/local/bin/init-ssh.sh
+    
+    # 如果 SSH_USER 是 ssh，确保受限用户存在
+    if [ "$SSH_USER" = "ssh" ]; then
+        echo "=== Creating default restricted user: ssh ==="
+        if id "ssh" &>/dev/null; then
+            echo "User 'ssh' already exists"
+        else
+            # 创建受限用户（无密码，只用密钥认证）
+            /usr/local/bin/create-jumpuser.sh ssh || echo "User creation failed, may already exist"
+        fi
+        
+        # 确保 authorized_keys 权限正确
+        if [ -f /home/ssh/.ssh/authorized_keys ]; then
+            chmod 600 /home/ssh/.ssh/authorized_keys
+            chown ssh:ssh /home/ssh/.ssh/authorized_keys
+        fi
+    fi
 }
 
 # 启动 EasyTier Core
