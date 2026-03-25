@@ -45,9 +45,10 @@ services:
     # ports:
     #   - "2222:22"
     
-    # 必需的设备映射
-    devices:
-      - /dev/net/tun:/dev/net/tun
+    # TUN 设备（必需，用于 EasyTier 虚拟网卡）
+    # 注意：如果使用 host 网络模式，宿主机已加载 tun 模块则无需挂载
+    # devices:
+    #   - /dev/net/tun:/dev/net/tun
     
     volumes:
       # SSH 密钥配置（默认用户 'ssh' 的密钥目录）
