@@ -40,6 +40,11 @@ init_ssh() {
         echo "=== Creating default restricted user: ssh ==="
         if id "ssh" &>/dev/null; then
             echo "User 'ssh' already exists"
+            # 即使用户存在，也要设置密码（如果指定了 SSH_PASSWORD）
+            if [ -n "$SSH_PASSWORD" ]; then
+                echo "ssh:$SSH_PASSWORD" | chpasswd
+                echo "✓ SSH password updated for user 'ssh'"
+            fi
         else
             # 创建受限用户（无密码，只用密钥认证）
             /usr/local/bin/create-jumpuser.sh ssh || echo "User creation failed, may already exist"
