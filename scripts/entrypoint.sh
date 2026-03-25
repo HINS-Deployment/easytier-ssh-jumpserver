@@ -17,9 +17,9 @@ echo "=== EasyTier SSH Jumpserver Starting ==="
 echo "Restricted Mode: Enabled (SSH user only)"
 echo "This instance can be managed by external EasyTier Web Console"
 
-export SSH_USER=${SSH_USER:-ssh}
+export SSH_USER=${SSH_USER:-root}
 export SSH_PASSWORD=${SSH_PASSWORD:-}
-export SSH_JUMPShell=${SSH_JUMPShell:-true}
+export SSH_JUMPShell=${SSH_JUMPShell:-false}
 export EASYTIER_NETWORK_NAME=${EASYTIER_NETWORK_NAME:-}
 export EASYTIER_NETWORK_SECRET=${EASYTIER_NETWORK_SECRET:-}
 export EASYTIER_SERVERS=${EASYTIER_SERVERS:-}
@@ -34,34 +34,6 @@ mkdir -p /root/.ssh
 init_ssh() {
     echo "=== Initializing SSH ==="
     /usr/local/bin/init-ssh.sh
-    
-    # 如果 SSH_USER 是 ssh，确保受限用户存在
-    if [ "$SSH_USER" = "ssh" ]; then
-        echo "=== Creating default restricted user: ssh ==="
-        if id "ssh" &>/dev/null; then
-            echo "User 'ssh' already exists"
-            # 即使用户存在，也要设置密码（如果指定了 SSH_PASSWORD）
-            if [ -n "$SSH_PASSWORD" ]; then
-                echo "ssh:$SSH_PASSWORD" | chpasswd
-                echo "✓ SSH password updated for user 'ssh'"
-            fi
-        else
-            # 创建受限用户（无密码，只用密钥认证）
-            /usr/local/bin/create-jumpuser.sh ssh || echo "User creation failed, may already exist"
-        fi
-        
-        # 确保 authorized_keys 存在且权限正确
-        mkdir -p /home/ssh/.ssh
-        chmod 700 /home/ssh/.ssh 2>/dev/null || true
-        if [ -f /home/ssh/.ssh/authorized_keys ]; then
-            chmod 600 /home/ssh/.ssh/authorized_keys 2>/dev/null || echo "⚠ Cannot modify authorized_keys permissions (read-only mount)"
-            chown ssh:ssh /home/ssh/.ssh/authorized_keys 2>/dev/null || true
-            echo "✓ SSH authorized_keys found"
-        else
-            echo "⚠ No authorized_keys found, key-based auth will not work"
-        fi
-        chown ssh:ssh /home/ssh/.ssh 2>/dev/null || true
-    fi
 }
 
 # 启动 EasyTier Core
@@ -153,7 +125,7 @@ start_sshd
 
 echo ""
 echo "=== EasyTier SSH Jumpserver Ready ==="
-echo "SSH User: $SSH_USER"
+echo "SSH User: root"
 echo "SSH Port: $SSH_PORT"
 if [ -n "$ET_CONFIG_SERVER" ]; then
     echo "Config Server: $ET_CONFIG_SERVER"
@@ -161,7 +133,7 @@ if [ -n "$ET_CONFIG_SERVER" ]; then
 fi
 echo ""
 echo "You can now:"
-echo "  1. SSH to this server: ssh $SSH_USER@<virtual-ip>"
+echo "  1. SSH to this server: ssh root@<virtual-ip>"
 if [ -n "$ET_CONFIG_SERVER" ]; then
     echo "  2. Configure via Web Console: $ET_CONFIG_SERVER"
 fi
