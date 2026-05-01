@@ -189,7 +189,7 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:${{ github.event.inputs.custom_docker_tag || 'ci' }}
+            ghcr.io/hins-deployment/easytier-ssh-jumpserver:${{ github.event.inputs.custom_docker_tag || 'ci' }}
             ${{ secrets.DOCKERHUB_USERNAME }}/easytier-ssh-jumpserver:${{ github.event.inputs.custom_docker_tag || 'ci' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
