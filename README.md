@@ -1,5 +1,9 @@
 # EasyTier SSH Jumpserver
 
+[![Release](https://github.com/HINS-Deployment/easytier-ssh-jumpserver/actions/workflows/build-release.yml/badge.svg)](https://github.com/HINS-Deployment/easytier-ssh-jumpserver/actions/workflows/build-release.yml)
+[![Pre-release](https://github.com/HINS-Deployment/easytier-ssh-jumpserver/actions/workflows/build-pre.yml/badge.svg)](https://github.com/HINS-Deployment/easytier-ssh-jumpserver/actions/workflows/build-pre.yml)
+[![CI](https://github.com/HINS-Deployment/easytier-ssh-jumpserver/actions/workflows/build-ci.yml/badge.svg)](https://github.com/HINS-Deployment/easytier-ssh-jumpserver/actions/workflows/build-ci.yml)
+
 基于 EasyTier 的 SSH 跳板机镜像，通过 EasyTier 组建虚拟网络，实现安全的 SSH 访问。
 
 ## 功能特性
@@ -12,17 +16,45 @@
 - 🔄 **自动更新**: 支持 watchtower 自动更新
 - 📝 **配置监控**: 自动检测配置文件变化并重启
 - 🛡️ **安全配置**: 最小权限原则，独立网络隔离
+- 🏷️ **多版本支持**: 提供正式版、预览版、开发版三种镜像标签
 
 ## 快速开始
 
 ### 1. 使用预构建镜像（推荐）
 
 ```bash
-# 直接拉取预构建镜像
+# 拉取最新正式版镜像
+ghcr.io/wuhins/easytier-ssh-jumpserver:latest
 docker pull ghcr.io/wuhins/easytier-ssh-jumpserver:latest
 
 # 国内加速（可选）
 docker pull docker.gh-proxy.org/ghcr.io/wuhins/easytier-ssh-jumpserver:latest
+```
+
+#### 镜像版本说明
+
+本项目提供三种镜像版本，适用于不同场景：
+
+| 版本 | 标签 | 说明 | 稳定性 | 更新频率 |
+|------|------|------|--------|----------|
+| **正式版** | `latest` / `<version>` | 基于 EasyTier 最新稳定版构建 | ⭐⭐⭐⭐⭐ | 跟随 EasyTier 正式发版 |
+| **预览版** | `pre` / `<version>` | 基于 EasyTier 最新预览版构建 | ⭐⭐⭐⭐ | 跟随 EasyTier 预览版发版 |
+| **开发版** | `ci` | 基于 EasyTier 最新 CI 构建 | ⭐⭐⭐ | 每小时检查更新 |
+
+**使用示例**：
+
+```bash
+# 使用正式版（推荐生产环境）
+docker pull ghcr.io/wuhins/easytier-ssh-jumpserver:latest
+
+# 使用预览版（体验新功能）
+docker pull ghcr.io/wuhins/easytier-ssh-jumpserver:pre
+
+# 使用开发版（测试最新特性）
+docker pull ghcr.io/wuhins/easytier-ssh-jumpserver:ci
+
+# 使用指定版本号
+docker pull ghcr.io/wuhins/easytier-ssh-jumpserver:v2.5.0
 ```
 
 ### 2. 使用 Docker Compose 运行（推荐）
@@ -468,3 +500,44 @@ LGPL-3.0
 - [GitHub 仓库](https://github.com/WUHINS/easytier-ssh-jumpserver)
 - [安全配置指南](SECURITY.md)
 - [GitHub Container Registry](https://github.com/WUHINS/easytier-ssh-jumpserver/pkgs/container/easytier-ssh-jumpserver)
+
+## 自动化构建
+
+本项目使用 GitHub Actions 自动构建和发布 Docker 镜像：
+
+### 构建流程
+
+1. **正式版构建** (`build-release.yml`)
+   - 每小时检查 EasyTier 最新稳定版
+   - 检测到新版本时自动构建并推送 `latest` 标签
+   - 同时推送版本号标签（如 `v2.5.0`）
+
+2. **预览版构建** (`build-pre.yml`)
+   - 每小时检查 EasyTier 最新预览版
+   - 检测到新版本时自动构建并推送 `pre` 标签
+   - 同时推送版本号标签（如 `2.5.0-beta.1`）
+
+3. **开发版构建** (`build-ci.yml`)
+   - 每小时检查 EasyTier 主分支的最新 CI 构建
+   - 检测到新构建时自动构建并推送 `ci` 标签
+   - 基于最新的开发代码，适合测试新功能
+
+### 手动触发
+
+您可以在 GitHub Actions 页面手动触发任意构建流程：
+
+1. 进入 [Actions](https://github.com/HINS-Deployment/easytier-ssh-jumpserver/actions) 页面
+2. 选择对应的工作流（Release / Pre-release / CI）
+3. 点击 "Run workflow"
+4. （可选）输入自定义标签名称
+5. 点击 "Run workflow" 开始构建
+
+### 版本跟踪
+
+项目使用 `.github/state/` 目录跟踪已构建的版本：
+
+- `LAST_VERSION`: 最后构建的正式版版本号
+- `LAST_PRE_VERSION`: 最后构建的预览版版本号
+- `LAST_CI_VERSION`: 最后构建的开发版 Run ID
+
+这些文件由 GitHub Actions 自动更新，用于检测版本变化。

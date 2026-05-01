@@ -1,0 +1,158 @@
+name: EasyTier SSH Jumpserver Release Docker Image
+#  `DOCKERHUB_USERNAME`: DockerHub 用户名
+#  `DOCKERHUB_TOKEN`: DockerHub Access Token
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+    inputs:
+      custom_docker_tag:
+        description: '自定义镜像版本标签（可选，不填则默认为 "latest"）'
+        required: false
+        default: ''
+
+jobs:
+  check-and-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get latest release version
+        id: get_version
+        run: |
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/EasyTier/EasyTier/releases/latest | jq -r .tag_name)
+          echo "Latest version: $LATEST_VERSION"
+          echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if version changed
+        id: check_version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "Manual trigger detected. Forcing build."
+            echo "build=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if [ -f .github/state/LAST_VERSION ]; then
+            CURRENT_VERSION=$(cat .github/state/LAST_VERSION)
+          else
+            CURRENT_VERSION=""
+          fi
+          
+          LATEST_VERSION="${{ steps.get_version.outputs.version }}"
+          
+          if [ "$LATEST_VERSION" != "$CURRENT_VERSION" ]; then
+            echo "New version detected: $LATEST_VERSION"
+            echo "build=true" >> $GITHUB_OUTPUT
+          else
+            echo "Version $LATEST_VERSION is already built."
+            echo "build=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up QEMU
+        if: steps.check_version.outputs.build == 'true'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: steps.check_version.outputs.build == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        if: steps.check_version.outputs.build == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to Docker Hub
+        if: steps.check_version.outputs.build == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Download EasyTier binaries
+        if: steps.check_version.outputs.build == 'true'
+        run: |
+          set -ex
+          
+          # 创建 build 目录
+          rm -rf build
+          mkdir -p build
+          
+          # 复制 Dockerfile 和 scripts 到 build 目录
+          cp Dockerfile build/
+          cp -r scripts/ build/scripts/
+          
+          # 获取最新版本号
+          LATEST_RELEASE="${{ steps.get_version.outputs.version }}"
+          echo "=== Downloading EasyTier $LATEST_RELEASE ==="
+          
+          # 下载所有架构
+          ARCHS="x86_64 aarch64 armv7hf armhf riscv64"
+          
+          for ARCH in $ARCHS; do
+            echo ""
+            echo "=== Processing $ARCH ==="
+            
+            # 创建架构目录
+            mkdir -p "build/$ARCH"
+            
+            # 下载并解压到临时目录
+            TEMP_DIR=$(mktemp -d)
+            ARCHIVE_NAME="easytier-linux-${ARCH}-${LATEST_RELEASE}"
+            URL="https://github.com/EasyTier/EasyTier/releases/download/$LATEST_RELEASE/${ARCHIVE_NAME}.zip"
+            
+            echo "Downloading: $URL"
+            curl -fsSL -o "$TEMP_DIR/archive.zip" "$URL"
+            
+            echo "Extracting..."
+            unzip -q "$TEMP_DIR/archive.zip" -d "$TEMP_DIR"
+            
+            # 查找 easytier-core 并复制到 build 目录
+            CORE_BIN=$(find "$TEMP_DIR" -name "easytier-core" -type f | head -n1)
+            if [ -n "$CORE_BIN" ]; then
+              echo "Found: $CORE_BIN"
+              cp "$CORE_BIN" "build/$ARCH/easytier"
+              chmod +x "build/$ARCH/easytier"
+              echo "✅ Success: build/$ARCH/easytier"
+            else
+              echo "❌ easytier-core not found!"
+              ls -laR "$TEMP_DIR"
+              exit 1
+            fi
+            
+            rm -rf "$TEMP_DIR"
+          done
+
+      - name: Build and push
+        if: steps.check_version.outputs.build == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./build
+          file: ./build/Dockerfile
+          platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.event.inputs.custom_docker_tag || 'latest' }}
+            ghcr.io/${{ github.repository }}:${{ steps.get_version.outputs.version }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/easytier-ssh-jumpserver:${{ github.event.inputs.custom_docker_tag || 'latest' }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/easytier-ssh-jumpserver:${{ steps.get_version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Update LAST_VERSION file
+        if: steps.check_version.outputs.build == 'true'
+        run: |
+          mkdir -p .github/state
+          echo "${{ steps.get_version.outputs.version }}" > .github/state/LAST_VERSION
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          git add .github/state/LAST_VERSION
+          git diff --staged --quiet || (git commit -m "Update LAST_VERSION to ${{ steps.get_version.outputs.version }}" && git pull --rebase && git push)

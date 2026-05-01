@@ -1,0 +1,68 @@
+FROM alpine:latest AS builder
+
+ARG TARGETARCH
+ARG TARGETVARIANT
+
+COPY binaries/ /tmp/binaries/
+
+RUN set -e && \
+    mkdir -p /out && \
+    if [ -n "$TARGETVARIANT" ]; then \
+        DIR="/tmp/binaries/${TARGETARCH}/${TARGETVARIANT}"; \
+    else \
+        DIR="/tmp/binaries/${TARGETARCH}"; \
+    fi && \
+    echo "Installing binaries from $DIR" && \
+    if [ -d "$DIR" ]; then \
+        cp "$DIR"/easytier-core /out/easytier; \
+    else \
+        echo "Error: Binaries for ${TARGETARCH}${TARGETVARIANT:+/${TARGETVARIANT}} not found in $DIR"; \
+        ls -R /tmp/binaries; \
+        exit 1; \
+    fi && \
+    chmod +x /out/easytier
+
+FROM alpine:latest
+
+RUN apk add --no-cache tzdata tini openssh-server openssh-client sshpass bash curl shadow gcompat libgcc libstdc++
+
+WORKDIR /app
+
+# 安装 easytier-core
+COPY --from=builder /out/easytier /usr/local/bin/easytier-core
+RUN chmod +x /usr/local/bin/easytier-core
+
+# 复制脚本并转换为 Unix 换行符
+COPY scripts/ /usr/local/bin/
+RUN chmod +x /usr/local/bin/*.sh && \
+    # 转换所有脚本为 Unix 换行符 (CRLF -> LF)
+    for f in /usr/local/bin/*.sh; do sed -i 's/\r$//' "$f"; done
+
+# 创建受限的 jumpshell
+RUN cp /usr/local/bin/jumpshell.sh /jumpshell && \
+    chmod +x /jumpshell
+
+# 获取 EasyTier 版本并设置为环境变量
+RUN EASYTIER_VERSION=$(easytier-core --version 2>&1 | head -n1 | tr -d '\n' || echo "unknown") && \
+    echo "Built with EasyTier version: $EASYTIER_VERSION" && \
+    printf 'EASYTIER_VERSION="%s"\n' "$EASYTIER_VERSION" > /etc/easytier_version
+
+ENV TZ=Asia/Shanghai
+ENV SSH_PORT=22
+ENV SSH_USER=root
+ENV SSH_PASSWORD=
+ENV SSH_JUMPShell=false
+ENV EASYTIER_NETWORK_NAME=
+ENV EASYTIER_NETWORK_SECRET=
+ENV EASYTIER_SERVERS=
+ENV ET_CONFIG_SERVER=
+ENV ET_MACHINE_ID=
+# 暴露端口
+EXPOSE 22/tcp
+EXPOSE 11010/tcp
+EXPOSE 11010/udp
+EXPOSE 11011/udp
+EXPOSE 11011/tcp
+EXPOSE 11012/tcp
+
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/entrypoint.sh"]
